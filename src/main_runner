@@ -1,10 +1,12 @@
+import itertools
+
 import pandas as pd
 import numpy as np
 import time
 import json
 
 import architecture.LifeBoard
-
+from refernce.z3_method.utils.util import csv_to_delta, csv_to_numpy, numpy_to_dict
 
 def read_data():
     input_directory = "F:\\data\\conways-reverse-game-of-life-2020\\"
@@ -28,28 +30,45 @@ def preprocess_tilings(size):
     init_board = architecture.LifeBoard.LifeBoard(width=size, height=size)
     envelope = [(i, size - 1) for i in range(size)]
     envelope.extend([(size - 1, i) for i in range(size)])
-    dict_paddings = {"corner": [(0, 1), (0, 1)]
-        , "edge": [(1, 1), (0, 1)]
-        , "middle": [(1, 1), (1, 1)]}
-    for name, padding in dict_paddings.items():
-        dict_cast = init_board.cast(padding=padding)
-        json.dump(dict_cast, open("..\\preprocess\\{}_{}_{}.json".format(name, size, size), "w"))
+    padding = [(1, 1), (1, 1)]
+    msb_bits=10
+    iter_assignments_msb = itertools.product([0, 1], repeat=msb_bits)
+    for assigment_msb in iter_assignments_msb:
+        dict_cast = init_board.cast(padding=padding,assignment_msb=assigment_msb)
+        json.dump(dict_cast, open("..\\preprocess\\cast_{}_{}_{}.json".
+                                  format("".join([str(b) for b in assigment_msb]),size, size), "w"))
+        print("finish msb bits",assigment_msb)
 
-    print(len(dict_cast))
+
+def solve(df):
+    idxs = [4]  # exclude timeouts
+    deltas = (csv_to_delta(df, idx) for idx in idxs)  # generator
+    boards = (csv_to_numpy(df, idx, key='stop') for idx in idxs)
+    tic_solve = time.time()
+    for board, delta in zip(boards, deltas):
+        architecture.LifeBoard.LifeBoard(board=board).reverse()
+    print("time to solve: ",time.time()-tic_solve)
+
 
 
 def main():
-    # train_df,test_df = read_data()
-    # preprocess(train_df)
-    #preprocess_tilings(3)
-    board = np.zeros((6,6))
-    board[1,:3] = 1
-    life_board = architecture.LifeBoard(board=board)
-    life_board.reverse()
+    train_df,test_df = read_data()
+    solve(train_df)
+    #preprocess(train_df)
+    #preprocess_tilings(5)
+    #board = np.zeros((10, 10),np.int32)
+    #board[1, :3] = 1
+    #life_board = architecture.LifeBoard.LifeBoard(board=board)
+    #life_board.reverse(width=5,height=5,msb_bits=10)
     # take from train example with delta1 - only 6*6 bottom
     # solve the 6*6 board
-    print("end")
 
+
+    test_board = architecture.LifeBoard.LifeBoard(board=
+    np.array(
+        [[0, 0, 0, -1], [0, 0, 0, -1], [1, 1, 1, -1], [-1, -1, -1, -1]]))
+    test_board_fwd = test_board.forward()
+    print("end")
 
 if __name__ == "__main__":
     tic = time.time()
