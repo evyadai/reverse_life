@@ -71,6 +71,7 @@ def main(production = False):
     train_df,test_df,submission_df = read_data(production)
     if production:
         output_file = "/output/submission.csv"
+        architecture.LifeBoard.LifeBoard.path = "/kaggle/working/reverse_life/preprocess/"
     else:
         output_file = "..\\output\\submission.csv"
         architecture.LifeBoard.LifeBoard.path = ".." + "//" + "preprocess" + "//"
