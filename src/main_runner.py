@@ -5,6 +5,7 @@ import numpy as np
 import time
 import json
 
+import architecture
 import architecture.LifeBoard
 from utils.util import csv_to_delta, csv_to_numpy, numpy_to_dict
 
