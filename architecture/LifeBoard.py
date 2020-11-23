@@ -117,6 +117,7 @@ class LifeBoard:
             #print("level:", level)
             #tic_level = time.time()
             interior_str = self.interior_str([(1, 1), (1, 1)], level)
+            print("inside reverse before read: ",LifeBoard.path)
             old_boards_tilings = self.read_tilings(interior_str, width, height, level, max_tiling)
             #print("stage 1: ", time.time()-tic_level)
             # TODO - soften selection (another parameter)
