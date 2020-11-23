@@ -9,7 +9,6 @@ from sys import platform
 
 
 class LifeBoard:
-    path = ".."+"//"+"preprocess"+"//"
     def read_tilings(self, interior_str, width, height, level, max_tiling):
         dict_interior = json.load(open(LifeBoard.path+"cast_{}_{}_{}.json"
                                        .format(interior_str.replace(",", ""), width, height), "r"))

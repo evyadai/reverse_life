@@ -69,11 +69,14 @@ def solve(df,submission_df):
 
 def main(production = False):
     train_df,test_df,submission_df = read_data(production)
-    solve(train_df,submission_df)
     if production:
         output_file = "/output/submission.csv"
     else:
         output_file = "..\\output\\submission.csv"
+        architecture.LifeBoard.LifeBoard.path = ".." + "//" + "preprocess" + "//"
+
+    solve(train_df,submission_df)
+
     submission_df.sort_index().to_csv(output_file)
     #preprocess(train_df)
     #preprocess_tilings(5)
