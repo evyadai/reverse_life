@@ -6,24 +6,27 @@ import time
 import json
 
 import architecture.LifeBoard
-from refernce.z3_method.utils.util import csv_to_delta, csv_to_numpy, numpy_to_dict
+from utils.util import csv_to_delta, csv_to_numpy, numpy_to_dict
 
-def read_data():
-    input_directory = "F:\\data\\conways-reverse-game-of-life-2020\\"
+def read_data(production = False):
+    if production:
+        input_directory = "/kaggle/input/conways-reverse-game-of-life-2020/"
+    else:
+        input_directory = "F:\\data\\conways-reverse-game-of-life-2020\\"
     train_file = input_directory + "train.csv"
     test_file = input_directory + "test.csv"
-    # sample_submission_file  = f'{input_directory}\\sample_submission.csv'
+    sample_submission_file  = input_directory+"sample_submission.csv"
     # submission_file         = f'{output_directory}/submission.csv'
     # timeout_file            = f'{output_directory}/timeouts.csv'
     # image_segmentation_file = f'{root_directory}/output/image_segmentation_solutions.csv'
 
     train_df = pd.read_csv(train_file, index_col='id').astype(np.int)
     test_df = pd.read_csv(test_file, index_col='id').astype(np.int)
-    # submission_df         = pd.read_csv(submission_file,  index_col='id').astype(np.int)
+    submission_df         = pd.read_csv(sample_submission_file,  index_col='id').astype(np.int)
     # sample_submission_df  = pd.read_csv(sample_submission_file,  index_col='id').astype(np.int)
     # timeout_df            = pd.read_csv(timeout_file,  index_col='id') if os.path.exists(timeout_file) else pd.DataFrame(columns=['id','timeout'])
     # image_segmentation_df = pd.read_csv(image_segmentation_file,  index_col='id').astype(np.int)
-    return train_df, test_df
+    return train_df, test_df, submission_df
 
 
 def preprocess_tilings(size):
@@ -40,35 +43,40 @@ def preprocess_tilings(size):
         print("finish msb bits",assigment_msb)
 
 
-def solve(df):
-    idxs = [4]  # exclude timeouts
+def solve(df,submission_df):
+    #idxs = [4]
+    idxs = (idx for idx in df.index)
     deltas = (csv_to_delta(df, idx) for idx in idxs)  # generator
     boards = (csv_to_numpy(df, idx, key='stop') for idx in idxs)
+
     tic_solve = time.time()
-    for board, delta in zip(boards, deltas):
-        architecture.LifeBoard.LifeBoard(board=board).reverse()
+    for idx, board, delta in zip(idxs,boards, deltas):
+        if time.time() - tic_solve < 10:
+            rev_board = architecture.LifeBoard.LifeBoard(board=board)
+            for _ in range(delta):
+                rev_board = rev_board.reverse()
+            solution_dict = numpy_to_dict(rev_board.board)
+            submission_df.loc[idx] = pd.Series(solution_dict)
+        if (idx % 1000 == 0):
+            print(idx,time.time()-tic_solve)
+
+
     print("time to solve: ",time.time()-tic_solve)
 
 
 
-def main():
-    train_df,test_df = read_data()
-    solve(train_df)
+
+def main(production = False):
+    train_df,test_df,submission_df = read_data(production)
+    solve(train_df,submission_df)
+    if production:
+        output_file = "/output/submission.csv"
+    else:
+        output_file = "..\\output\\submission.csv"
+    submission_df.sort_index().to_csv(output_file)
     #preprocess(train_df)
     #preprocess_tilings(5)
-    #board = np.zeros((10, 10),np.int32)
-    #board[1, :3] = 1
-    #life_board = architecture.LifeBoard.LifeBoard(board=board)
-    #life_board.reverse(width=5,height=5,msb_bits=10)
-    # take from train example with delta1 - only 6*6 bottom
-    # solve the 6*6 board
-
-
-    test_board = architecture.LifeBoard.LifeBoard(board=
-    np.array(
-        [[0, 0, 0, -1], [0, 0, 0, -1], [1, 1, 1, -1], [-1, -1, -1, -1]]))
-    test_board_fwd = test_board.forward()
-    print("end")
+    print("end main")
 
 if __name__ == "__main__":
     tic = time.time()

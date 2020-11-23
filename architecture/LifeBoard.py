@@ -1,16 +1,20 @@
 import numpy as np
 import itertools
-from scipy.ndimage.interpolation import shift
 import json
 import cProfile
 import time
 
 # from pyinstrument import Profiler
+from sys import platform
 
 
 class LifeBoard:
     def read_tilings(self, interior_str, width, height, level, max_tiling):
-        dict_interior = json.load(open("..\\preprocess\\cast_{}_{}_{}.json"
+        if platform == "linux" or platform == "linux2":
+            sep = "/"
+        elif platform == "win32":
+            sep = "\\"
+        dict_interior = json.load(open(".."+sep+"preprocess"+sep+"cast_{}_{}_{}.json"
                                        .format(interior_str.replace(",", ""), width, height), "r"))
         #dict_interior = {"":{"":",".join(["0" for i in range(25)])}}
         dict_boards = {nb_str: ob_dict
@@ -103,12 +107,12 @@ class LifeBoard:
 
     # give all possibilities
     def reverse(self, num_steps=1, width=5, height=5, msb_bits=10):
-        old_boards_positions = [(1000,LifeBoard(board=-1 * np.ones(self.board.shape)))]
+        old_boards_positions = [(1000,LifeBoard(board=-1 * np.ones(self.board.shape,dtype=np.int32)))]
         # levels - ranges of each tilling
         levels = self.build_levels(width, height)
         max_old_boards ,max_tiling = 10, 10
         # TODO - find good start (high density -  1's number)
-        debug_performance = True
+        debug_performance = False
         if debug_performance:
             pr = cProfile.Profile()
             pr.enable()
