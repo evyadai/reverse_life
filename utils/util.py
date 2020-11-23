@@ -17,7 +17,7 @@ def csv_to_numpy(df, idx, key='start') -> np.ndarray:
     board = board.reshape((25,25))
     return board.astype(np.int8)
 
-def numpy_to_dict(board: np.ndarray, key='start') -> Dict:
+def numpy_to_dict(board: np.ndarray, key='start'):
     assert len(board.shape) == 2  # we want 2D solutions_3d[0] not 3D solutions_3d
     assert key in { 'start', 'stop' }
 
