@@ -4,33 +4,21 @@ import json
 import cProfile
 import time
 
-# from pyinstrument import Profiler
+from pyinstrument import Profiler
 from sys import platform
 
 
 class LifeBoard:
-    path = ""
-    def read_tilings(self, interior_str, width, height, level, max_tiling):
-        print("read with path: ",LifeBoard.path)
-        dict_interior = json.load(open(LifeBoard.path+"cast_{}_{}_{}.json"
-                                       .format(interior_str.replace(",", ""), width, height), "r"))
-        #dict_interior = {"":{"":",".join(["0" for i in range(25)])}}
-        dict_boards = {nb_str: ob_dict
-                       for nb_str, ob_dict in dict_interior.items()}
-        if len(dict_boards)==1:
-            return [LifeBoard(string=ob_str, width=width, height=height)
-             for ob_str in list(list(dict_boards.values())[0].values())[:max_tiling]]
+    dict_tilings = {}
 
-        dict_boards_selection = {nb_str: ob_dict for nb_str, ob_dict in dict_boards.items()
-                                 if self.fit(LifeBoard(string=nb_str, width=width, height=height), level)}
-        old_boards_tilings_list = list({ob_envelope: ob_str
-                                        for ob_dict in dict_boards_selection.values()
-                                        for ob_envelope, ob_str in ob_dict.items()}
-                                       .values())
+    @staticmethod
+    def init_dict_tilings(path, width, height):
+        LifeBoard.dict_tilings = json.load(open(path + "cast_single_{}_{}.json".format(width, height), "r"))
+
+    def read_tilings(self, interior_str, width, height, max_tiling):
         # TODO - better selection - maybe probability
-        old_boards_tilings = [LifeBoard(string=ob_str, width=width, height=height)
-                              for ob_str in old_boards_tilings_list[:max_tiling]]
-        return old_boards_tilings
+        return [LifeBoard(string=ob_str, width=width, height=height)
+                for ob_str in LifeBoard.dict_tilings[interior_str.replace(",","")][:max_tiling]]
 
     def __init__(self, width=25, height=25, board=None, string=None):
         if string is not None:
@@ -105,37 +93,46 @@ class LifeBoard:
 
     # give all possibilities
     def reverse(self, num_steps=1, width=5, height=5, msb_bits=10):
-        old_boards_positions = [(1000,LifeBoard(board=-1 * np.ones(self.board.shape,dtype=np.int32)))]
+        old_boards_positions = [(1000, LifeBoard(board=-1 * np.ones(self.board.shape, dtype=np.int32)))]
         # levels - ranges of each tilling
         levels = self.build_levels(width, height)
-        max_old_boards ,max_tiling = 10, 10
+        max_old_boards, max_tiling, indices = 3, 200, None
         # TODO - find good start (high density -  1's number)
-        debug_performance = False
+        debug_performance, type_performance = False, 1
         if debug_performance:
-            pr = cProfile.Profile()
-            pr.enable()
+            if type_performance == 0:
+                pr = cProfile.Profile()
+                pr.enable()
+            else:
+                profiler = Profiler()
+                profiler.start()
+
         for level in levels:
-            #print("level:", level)
-            #tic_level = time.time()
+            # print("level:", level)
+            tic_level = time.time()
             interior_str = self.interior_str([(1, 1), (1, 1)], level)
-            print("inside reverse before read: ",LifeBoard.path)
-            old_boards_tilings = self.read_tilings(interior_str, width, height, level, max_tiling)
-            #print("stage 1: ", time.time()-tic_level)
+            old_boards_tilings = self.read_tilings(interior_str, width, height, max_tiling)
             # TODO - soften selection (another parameter)
             # TODO - selection based on probability
             # TODO - selection based on real fit for delta
             old_boards_positions = old_boards_positions[:max_old_boards]
             #print("first selection: ", len(old_boards_tilings), len(old_boards_positions))
+            #TODO - constrint new to current
             old_boards_results = [ob_pos[1].position(ob_tiling, level, constraint=self)
-                          for ob_pos in old_boards_positions for ob_tiling in old_boards_tilings]
-            #print("stage 2: ", time.time() - tic_level)
-            old_boards_positions =sorted(old_boards_results, key=lambda pos:pos[0])
-            #print("stage 3: ", time.time() - tic_level)
-            #print("second selection: ", len(old_boards_positions),old_boards_positions[0][0])
+                                  for ob_pos in old_boards_positions for ob_tiling in old_boards_tilings]
+            #print("stage 1(fit): ", time.time() - tic_level)
+            #indices = np.argsort([result[0] for result in old_boards_results])[:max_old_boards]
+            old_boards_positions = sorted(old_boards_results, key=lambda pos: pos[0])
+            #print("stage 2(sort): ", time.time() - tic_level)
+            # print("second selection: ", len(old_boards_positions),old_boards_positions[0][0])
         if debug_performance:
-            pr.disable()
-            pr.print_stats(sort="time")
-        print(len(old_boards_positions),old_boards_positions[0][0])
+            if type_performance == 0:
+                pr.disable()
+                pr.print_stats(sort="time")
+            else:
+                profiler.stop()
+                print(profiler.output_text(unicode=True, color=True))
+        # print(len(old_boards_positions),old_boards_positions[0][0])
         return old_boards_positions[0][1]
 
     def add_padding(self, padding):
@@ -167,8 +164,8 @@ class LifeBoard:
         res_board[level[0]:level[1] + 1, level[2]:level[3] + 1] = ob_tiling.board
         acc_board = LifeBoard(board=res_board)
         if constraint is None:
-            return 0,acc_board
-        return constraint.fitness(acc_board.forward()),acc_board
+            return 0, acc_board
+        return constraint.fitness(acc_board.forward()), acc_board
 
     def fit(self, rhs, ranges=None):
         if ranges is None:
@@ -176,13 +173,8 @@ class LifeBoard:
         board_ranges = self.board[ranges[0]:ranges[1] + 1, ranges[2]:ranges[3] + 1]
         return np.sum((board_ranges != rhs.board) & (rhs.board != -1) & (board_ranges != -1)) == 0
 
-    def fitness(self, rhs, ranges=None):
-        if ranges is None:
-            ranges = (0, rhs.width-1, 0, rhs.height-1)
-            board_ranges = self.board[ranges[0]:ranges[1] + 1, ranges[2]:ranges[3] + 1]
-            return np.sum((board_ranges != rhs.board) & (rhs.board != -1) & (board_ranges != -1))
+    def fitness(self, rhs):
         return np.sum((self.board != rhs.board) & (rhs.board != -1) & (self.board != -1))
-
 
     def equal_envelope(self, ob_rhs):
         return np.all(self.board[0, :] == ob_rhs.board[0, :]) and np.all(self.board[-1, :] == ob_rhs.board[-1, :]) \
@@ -207,11 +199,7 @@ class LifeBoard:
         return [(i * width, (i + 1) * width - 1, j * height, (j + 1) * height - 1) for i in range(self.width // width)
                 for j in range(self.height // height)]
 
-
-    def __eq__(self,lhs):
+    def __eq__(self, lhs):
         if self.width != lhs.width or self.height != lhs.height:
             return False
-        return np.sum(self.board!=lhs.board) == 0
-
-
-
+        return np.sum(self.board != lhs.board) == 0

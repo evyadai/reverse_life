@@ -14,8 +14,8 @@ def read_data(production = False):
         input_directory = "/kaggle/input/conways-reverse-game-of-life-2020/"
     else:
         input_directory = "F:\\data\\conways-reverse-game-of-life-2020\\"
-    train_file = input_directory + "train.csv"
-    test_file = input_directory + "test.csv"
+    train_file = input_directory + "tiny_train.csv"
+    test_file = input_directory + "tiny_test.csv"
     sample_submission_file  = input_directory+"sample_submission.csv"
     # submission_file         = f'{output_directory}/submission.csv'
     # timeout_file            = f'{output_directory}/timeouts.csv'
@@ -44,15 +44,13 @@ def preprocess_tilings(size):
         print("finish msb bits",assigment_msb)
 
 
-def solve(df,submission_df):
-    #idxs = [4]
-    idxs = (idx for idx in df.index)
+def solve(df, submission_df, idxs):
     deltas = (csv_to_delta(df, idx) for idx in idxs)  # generator
     boards = (csv_to_numpy(df, idx, key='stop') for idx in idxs)
 
     tic_solve = time.time()
     for idx, board, delta in zip(idxs,boards, deltas):
-        if time.time() - tic_solve < 10:
+        if time.time() - tic_solve < 10000:
             rev_board = architecture.LifeBoard.LifeBoard(board=board)
             for _ in range(delta):
                 rev_board = rev_board.reverse()
@@ -61,24 +59,44 @@ def solve(df,submission_df):
         if (idx % 1000 == 0):
             print(idx,time.time()-tic_solve)
 
+    time_solve = time.time()-tic_solve
+    print("time to solve(overall): ",time_solve/len(idxs),time_solve)
+    return time.time()-tic_solve
 
-    print("time to solve: ",time.time()-tic_solve)
-
-
+def evaluate(df, submission_df,idxs):
+    deltas = [csv_to_delta(df, idx) for idx in idxs]  # generator
+    new_boards = [csv_to_numpy(df, idx, key='stop') for idx in idxs]
+    old_boards = [csv_to_numpy(submission_df, idx, key='start') for idx in idxs]
+    predicted_new_boards = [architecture.LifeBoard.LifeBoard(board=board).forward(delta).board
+                        for delta,board in zip(deltas,old_boards)]
+    real_old_boards = [csv_to_numpy(df, idx, key='start') for idx in idxs]
+    real_new_boards = [architecture.LifeBoard.LifeBoard(board=board).forward(delta).board
+                        for delta,board in zip(deltas,real_old_boards)]
+    scores_deltas = [(np.mean(predict_board != new_board), delta)
+              for predict_board,new_board, delta in zip(predicted_new_boards,new_boards,deltas)]
+    real_scores_deltas = [(np.mean(predict_board != new_board), delta)
+              for predict_board,new_board, delta in zip(real_new_boards,new_boards,deltas)]
+    dict_performance = {delta:np.mean([score_delta[0] for score_delta in scores_deltas if score_delta[1]==delta])
+                        for delta in range(1, 6) if delta in deltas}
+    return dict_performance
 
 
 def main(production = False):
     train_df,test_df,submission_df = read_data(production)
     if production:
         output_file = "/output/submission.csv"
-        architecture.LifeBoard.LifeBoard.path = "/kaggle/working/reverse_life/preprocess/"
+        dict_path = "/kaggle/working/reverse_life/preprocess/"
     else:
         output_file = "..\\output\\submission.csv"
-        architecture.LifeBoard.LifeBoard.path = ".." + "//" + "preprocess" + "//"
-
-    solve(train_df,submission_df)
-
-    submission_df.sort_index().to_csv(output_file)
+        dict_path = ".." + "//" + "preprocess" + "//"
+    architecture.LifeBoard.LifeBoard.init_dict_tilings(dict_path,5,5)
+    num_running = 100
+    idxs = [idx for idx in train_df.index][:num_running]
+    idxs=[4,5,15,17,19,21,23,31,37,45]
+    solve(train_df,submission_df,idxs)
+    dict_performance = evaluate(train_df,submission_df,idxs)
+    print("dict_performance: ",dict_performance)
+    #submission_df.sort_index().to_csv(output_file)
     #preprocess(train_df)
     #preprocess_tilings(5)
     print("end main")

@@ -5,6 +5,22 @@ import glob
 import architecture.LifeBoard
 
 
+
+def single_nb_format(width,height):
+    single_dict = {}
+    dir = "..\\preprocess\\"
+    file_names = glob.glob(dir+"cast_*_{}_{}.json".format(width,height))
+    for f_name in file_names:
+        dict_cast = json.load(open(f_name,"r"))
+        nb_envelope = f_name.split("cast_")[1].split("_")[0]
+        if len(dict_cast) > 1:
+            print("more than one entry at: ",nb_envelope)
+        single_dict[nb_envelope] = list(list(dict_cast.values())[0].values())
+
+    json.dump(single_dict,open(dir+"cast_single_{}_{}.json".format(width,height),"w"))
+
+
+
 def does_generic(nb_generic, nb_envelope):
     return all([c1 == c2 or c1 == "-1" for c1, c2 in zip(nb_generic.split(","), nb_envelope.split(","))])
 
@@ -84,9 +100,9 @@ def build_nb_format(list_assignments, width, height):
 
 
 if __name__ == "__main__":
-    interior_bits = 9
-    iter_assignments_interior = itertools.product([0, 1], repeat=interior_bits)
-    list_assignments = list(iter_assignments_interior)[16:]
+    #interior_bits = 9
+    #iter_assignments_interior = itertools.product([0, 1], repeat=interior_bits)
+    #list_assignments = list(iter_assignments_interior)[16:]
     tic = time.time()
-    change_nb_format(list_assignments, 5, 5)
+    single_nb_format(5, 5)
     print("time elpassed: {}".format(time.time() - tic))
